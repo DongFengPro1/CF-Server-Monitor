@@ -133,7 +133,7 @@
             <span class="chart-title-icon">▸</span>
             {{ trans.memoryUsage }}
           </span>
-          <div>
+          <div class="chart-current-value-container">
             <span class="chart-current-value">{{ ramPercent }}%</span>
             <div class="chart-subtitle">{{ trans.swap }}: {{ server.swap_used || '0' }} / {{ server.swap_total || '0' }} MiB</div>
           </div>
@@ -149,7 +149,7 @@
             <span class="chart-title-icon">▸</span>
             {{ trans.diskUsage }}
           </span>
-          <div>
+          <div class="chart-current-value-container">
             <span class="chart-current-value">{{ diskPercent }}%</span>
             <div class="chart-subtitle">{{ trans.used }} {{ formatBytes(server.disk_used*1024*1024) }} / {{ formatBytes(server.disk_total*1024*1024) }}</div>
           </div>
@@ -224,10 +224,10 @@
             {{ trans.latencyMonitor }}
           </span>
           <div class="ping-indicator">
-            <span class="ping-ct">{{ trans.pingCt }} <b>{{ server.ping_ct || '0' }}ms</b></span>
-            <span class="ping-cu">{{ trans.pingCu }} <b>{{ server.ping_cu || '0' }}ms</b></span>
-            <span class="ping-cm">{{ trans.pingCm }} <b>{{ server.ping_cm || '0' }}ms</b></span>
-            <span class="ping-bd">{{ trans.pingBd }} <b>{{ server.ping_bd || '0' }}ms</b></span>
+            <span class="ping-ct">{{ trans.pingCt }} <b>{{ formatPing(server.ping_ct) }}</b></span>
+            <span class="ping-cu">{{ trans.pingCu }} <b>{{ formatPing(server.ping_cu) }}</b></span>
+            <span class="ping-cm">{{ trans.pingCm }} <b>{{ formatPing(server.ping_cm) }}</b></span>
+            <span class="ping-bd">{{ trans.pingBd }} <b>{{ formatPing(server.ping_bd) }}</b></span>
           </div>
         </div>
         <div class="chart-body">
@@ -335,7 +335,12 @@ const isOnline = computed(() => {
 const cpuPercent = computed(() => (parseFloat(server.value.cpu) || 0).toFixed(1))
 const gpuPercent = computed(() => (parseFloat(server.value.gpu) || 0).toFixed(1))
 const ramPercent = computed(() => (parseFloat(server.value.ram) || 0).toFixed(1))
-const diskPercent = computed(() => (parseFloat(server.value.disk) || 0).toFixed(1))
+const diskPercent = computed(() => {
+  if (server.value.disk_total > 0) {
+    return ((server.value.disk_used / server.value.disk_total) * 100).toFixed(2)
+  }
+  return '0.00'
+})
 const hasGpuData = computed(() => server.value.gpu !== null && server.value.gpu !== undefined && server.value.gpu !== '' && !!server.value.gpu_info)
 
 const isExpired = computed(() => {
@@ -398,6 +403,7 @@ const parseLoadAvg = (loadAvgStr) => {
 const isLossValid = (value) => value !== null && value !== undefined && value !== '' && !Number.isNaN(parseFloat(value))
 const formatLoss = (value) => isLossValid(value) ? `${Math.max(0, Math.min(100, parseFloat(value))).toFixed(0)}%` : ''
 const hasLossData = computed(() => hasLossHistoryData.value || ['loss_ct', 'loss_cu', 'loss_cm', 'loss_bd'].some(key => isLossValid(server.value[key])))
+const formatPing = (value) => (value === null || value === undefined || value === '' || value === 'null') ? 'Timeout' : `${value}ms`
 
 const parseBootTimeToMs = (bootTime) => {
   if (!bootTime) return null
@@ -610,7 +616,7 @@ const initCharts = () => {
     charts.proc = new Chart(procChartRef.value.getContext('2d'), {
       type: 'line',
       data: { datasets: [{ label: 'Processes', data: [], borderColor: '#f778ba', backgroundColor: 'rgba(247, 120, 186, 0.03)', fill: true, borderWidth: 1.5, spanGaps: false }] },
-      options: createChartOptions('', false, 'Count')
+      options: createChartOptions('')
     })
   }
 
@@ -786,7 +792,7 @@ const updateChartDatasetWithSwap = (chart, datasetIndex, dataPoints) => {
 
   const dataset = chart.data.datasets[datasetIndex]
   if (!dataset) return
-  
+
   const endTime = Date.now()
   const startTime = endTime - currentHours.value * 60 * 60 * 1000
 
@@ -798,6 +804,39 @@ const updateChartDatasetWithSwap = (chart, datasetIndex, dataPoints) => {
       const swapTotal = parseFloat(d.swap_total) || 0
       const swapUsed = parseFloat(d.swap_used) || 0
       const percent = swapTotal === 0 ? 0 : (swapUsed / swapTotal) * 100
+      return { x: new Date(d.timestamp).getTime(), y: percent }
+    })
+
+    processedData.sort((a, b) => a.x - b.x)
+    processedData = applyGapBreak(processedData)
+  }
+
+  if (chart.options && chart.options.scales && chart.options.scales.x) {
+    chart.options.scales.x.min = startTime
+    chart.options.scales.x.max = endTime
+  }
+
+  dataset.data = processedData
+  chart.update('none')
+}
+
+const updateChartDatasetWithDisk = (chart, datasetIndex, dataPoints) => {
+  if (!chart) return
+
+  const dataset = chart.data.datasets[datasetIndex]
+  if (!dataset) return
+
+  const endTime = Date.now()
+  const startTime = endTime - currentHours.value * 60 * 60 * 1000
+
+  let processedData = []
+  if (dataPoints && dataPoints.length > 0) {
+    const sampledData = sampleData(dataPoints)
+
+    processedData = sampledData.map(d => {
+      const diskTotal = parseFloat(d.disk_total) || 0
+      const diskUsed = parseFloat(d.disk_used) || 0
+      const percent = diskTotal === 0 ? 0 : (diskUsed / diskTotal) * 100
       return { x: new Date(d.timestamp).getTime(), y: percent }
     })
 
@@ -864,7 +903,7 @@ const loadAllHistory = async (hours) => {
     updateChartDataset(charts.gpu, 0, allData, 'timestamp', 'gpu', true)
     updateChartDataset(charts.ram, 0, allData, 'timestamp', 'ram')
     updateChartDatasetWithSwap(charts.ram, 1, allData)
-    updateChartDataset(charts.disk, 0, allData, 'timestamp', 'disk')
+    updateChartDatasetWithDisk(charts.disk, 0, allData)
     updateChartDataset(charts.proc, 0, allData, 'timestamp', 'processes')
     updateChartDataset(charts.net, 0, allData, 'timestamp', 'net_in_speed')
     updateChartDataset(charts.net, 1, allData, 'timestamp', 'net_out_speed')
@@ -990,7 +1029,8 @@ const fetchCurrentStatus = async (incomingData) => {
     appendDataToChart(charts.ram, 0, dataTimestamp, data.ram)
     const swapPercent = (parseFloat(data.swap_total) > 0) ? (parseFloat(data.swap_used) / parseFloat(data.swap_total)) * 100 : 0
     appendDataToChart(charts.ram, 1, dataTimestamp, swapPercent)
-    appendDataToChart(charts.disk, 0, dataTimestamp, data.disk)
+    const diskPercent = (parseFloat(data.disk_total) > 0) ? (parseFloat(data.disk_used) / parseFloat(data.disk_total)) * 100 : 0
+    appendDataToChart(charts.disk, 0, dataTimestamp, diskPercent)
     appendDataToChart(charts.proc, 0, dataTimestamp, data.processes)
     appendDataToChart(charts.net, 0, dataTimestamp, data.net_in_speed)
     appendDataToChart(charts.net, 1, dataTimestamp, data.net_out_speed)

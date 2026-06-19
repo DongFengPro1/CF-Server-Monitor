@@ -4,11 +4,12 @@
 
 注意：
 
-- <= 2.6.9 版本,使用方式一部署方式，需要在Workers & Pages页面，点击 **Settings**，修改Build configuration的Deploy command为：`npx wrangler deploy --keep-vars`，再同步数据，否则会导致API\_SECRET丢失。旧key可用通过`cat /etc/systemd/system/cf-probe.service`或者`cat /etc/init.d/cf-probe`获取。
+- <= 2.6.9 版本,使用方式一部署方式，需要在Workers & Pages页面，点击 **Settings**，修改Build configuration的Deploy command为：`npx wrangler deploy --keep-vars`，否则会导致API\_SECRET丢失。旧key可用通过`cat /etc/systemd/system/cf-probe.service`或者`cat /etc/init.d/cf-probe`获取，再重新设置环境变量API\_SECRET（注意是设置顶部的变量和密钥），最后再同步数据。
 
-**当前版本：V2.7.1**
+**当前版本：V2.7.2**
 
-- v2.7.1 新增国内四线路丢包率监控与历史图表，新增GPU字段与图表展示（GPU暂未测试），后台新增 Cloudflare D1/Workers 每日额度查询功能；
+- V2.7.2 新增支持多分区磁盘统计功能以及其他优化，增加[图文教程](https://huilang.me/cf-server-monitor-setup/)
+- V2.7.1 新增国内四线路丢包率监控与历史图表，新增GPU字段与图表展示（GPU暂未测试），后台新增 Cloudflare D1/Workers 每日额度查询功能；
 >    升级后请在后台点击 **升级数据库** 并重新安装/升级探针，否则新图表可能提示数据库结构未升级
 >
 >    Linux -> `curl -sL https://你的项目.你的子域.workers.dev/install.sh | bash -s install`
@@ -17,7 +18,7 @@
 >
 >    OpenWrt -> `curl -sL https://你的项目.你的子域.workers.dev/install-openwrt.sh | sh -s install`
 
-- v2.7.0 将每日数据清理改为每月1号执行的表轮换任务, 删除旧表将不再扣除D1消耗,前端图表支持查看最长7天的历史数据,优化脚本一键升级功能
+- V2.7.0 将每日数据清理改为每月1号执行的表轮换任务, 删除旧表将不再扣除D1消耗,前端图表支持查看最长7天的历史数据,优化脚本一键升级功能
 - V2.6.10 修复了方式一部署方式，同步后丢失API\_SECRET的问题
 - V2.6.9 修复地图显示问题，重构OpenWrt安装脚本，新增OpenRC服务支持
 - V2.6.8 修复网卡统计误统计非目标网卡流量的问题,修复Alpine环境UDP连接数统计错误,本次更新需要重新安装脚本才能生效
@@ -56,7 +57,7 @@
 - [GitHub 账户](https://github.com/)
 
 <details>
-<summary>方式一：Cloudflare Workers 连接GitHub仓库（推荐使用，方便同步）</summary>
+<summary>方式一：Cloudflare Workers 连接GitHub仓库（推荐使用，方便同步）图文教程 -> https://huilang.me/cf-server-monitor-setup/</summary>
 
 ### 第一步：Fork 项目
 
@@ -68,7 +69,7 @@
 2. 进入 **[Workers & Pages](https://dash.cloudflare.com/?to=/:account/workers-and-pages)**
 3. 点击 **Create application**
 4. 选择 Continue with GitHub（第一次使用需要连接 GitHub 账户），选择本项目
-5. Project Name填写：`cf-server-monitor`,小写即可，可按自己需求设置
+5. Project Name填写：`cf-server-monitor`
 6. Build command 填写：`npm run build:frontend`
 7. Deploy command 填写：`npx wrangler deploy --keep-vars`
 8. 点击 **Deploy**，成功会在底部显示`✨ Success! Build completed.`
@@ -498,7 +499,8 @@ Windows 系统
 
 | 任务   | 触发时间          | 说明                                    |
 | ---- | ------------- | ------------------------------------- |
-| 数据清理 | `* * 1 * *`   | 每月1号UTC 00:00 执行表轮换（删除旧表，重命名当前表，创建新表） |
+| 数据轮换 | `* * 1 * *`   | 每月1号UTC 00:00 执行表轮换（删除旧表，重命名当前表，创建新表） |
+| 数据清理 | `* * 8 * *`   | 每月8号UTC 08:00 删除旧表 |
 | 离线检测 | `*/1 * * * *` | 每分钟检测离线节点并发送告警                        |
 
 </details>
@@ -679,7 +681,8 @@ npm run deploy
 定时任务
 
 ```
-http://localhost:8787/cdn-cgi/handler/scheduled?cron=*+*+1+*+* // 每月执行一次
+http://localhost:8787/cdn-cgi/handler/scheduled?cron=*+*+1+*+* // 每月一号执行一次
+http://localhost:8787/cdn-cgi/handler/scheduled?cron=*+*+8+*+* // 每月8号执行一次
 http://localhost:8787/cdn-cgi/handler/scheduled?cron=*/1+*+*+*+* // 每分钟执行一次
 ```
 

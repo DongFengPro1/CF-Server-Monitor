@@ -7,7 +7,7 @@ import { handleUpdate, handleWebSocketUpgrade } from './handlers/update.js';
 import { handleServerAPI, handleServersAPI } from './handlers/dashboard.js';
 import { loadSettings, loadSiteSettings } from './utils/settings.js';
 import { checkAuth, simpleAuthResponse } from './middleware/auth.js';
-import { getServerDetail, getMetricsHistoryCache, setMetricsHistoryCache } from './utils/cache.js';
+import { getServerDetail, getMetricsHistoryCache, setMetricsHistoryCache, getCacheDuration } from './utils/cache.js';
 import { createSuccessResponse, createUnauthorizedResponse, createBadRequestResponse } from './utils/errors.js';
 
 // Durable Objects: 实时指标广播
@@ -65,6 +65,17 @@ async function decryptCookieData(encoded, env) {
   }
 }
 
+async function isTurnstileCookieValid(request, env) {
+  const cookies = request.headers.get('Cookie') || '';
+  const turnstileCookie = cookies.split(';').find(c => c.trim().startsWith('turnstile_verified='));
+  
+  if (!turnstileCookie) return false;
+  
+  const encryptedData = turnstileCookie.split('=')[1];
+  const decrypted = await decryptCookieData(encryptedData, env);
+  return decrypted && decrypted.expires && Date.now() < decrypted.expires * 1000;
+}
+
 async function verifyTurnstileToken(token, secretKey) {
   if (!token || !secretKey) {
     return false;
@@ -111,9 +122,10 @@ async function fetchHistoryData(env, request, id, hours, columns, sys = null) {
   
   // 最多查询7天数据
   const clampedHours = Math.min(hours, 168);
-  
+  const cacheDuration = getCacheDuration(clampedHours);
+
   const cached = getMetricsHistoryCache(id, clampedHours, columns);
-  if (cached && Date.now() - cached.timestamp < 60000) {
+  if (cached && Date.now() - cached.timestamp < cacheDuration) {
     return createSuccessResponse(cached.data, { 'X-Cache': 'HIT' });
   }
   
@@ -160,12 +172,8 @@ export default {
     }
 
     const bypassTurnstilePaths = [
-      '/update',
       '/admin/api',
       '/api/config',
-      '/favicon.ico',
-      '/logo.svg',
-      '/install.sh'
     ];
 
     const isApiRequest = path.startsWith('/api/') || path.startsWith('/admin/api');
@@ -182,17 +190,7 @@ export default {
       const turnstileSecretKey = sys.turnstile_secret_key || '';
       
       if (turnstileEnabled) {
-        const cookies = request.headers.get('Cookie') || '';
-        const turnstileCookie = cookies.split(';').find(c => c.trim().startsWith('turnstile_verified='));
-        
-        let hasValidCookie = false;
-        if (turnstileCookie) {
-          const encryptedData = turnstileCookie.split('=')[1];
-          const decrypted = await decryptCookieData(encryptedData, env);
-          if (decrypted && decrypted.expires && Date.now() < decrypted.expires * 1000) {
-            hasValidCookie = true;
-          }
-        }
+        const hasValidCookie = await isTurnstileCookieValid(request, env);
         
         if (!hasValidCookie) {
           const turnstileToken = request.headers.get('X-Turnstile-Token');
@@ -210,17 +208,8 @@ export default {
       }
     }
 
-    async function ensureSiteSettings() {
-      if (!sys) {
-        sys = await loadSiteSettings(env.DB);
-      }
-      return sys;
-    }
-
     async function ensureFullSettings() {
-      if (!sys || !sys.site_title) {
-        sys = await loadSettings(env.DB);
-      }
+      sys = await loadSettings(env.DB);
       return sys;
     }
 
@@ -239,21 +228,12 @@ export default {
         }
       }},
       { method: 'GET', path: '/api/config', handler: async () => {
-        await ensureSiteSettings();
+        await ensureFullSettings();
         const turnstileEnabled = sys.turnstile_enabled === 'true';
         let cookieAuth = false;
         
         if (turnstileEnabled) {
-          const cookies = request.headers.get('Cookie') || '';
-          const turnstileCookie = cookies.split(';').find(c => c.trim().startsWith('turnstile_verified='));
-          
-          if (turnstileCookie) {
-            const encryptedData = turnstileCookie.split('=')[1];
-            const decrypted = await decryptCookieData(encryptedData, env);
-            if (decrypted && decrypted.expires && Date.now() < decrypted.expires * 1000) {
-              cookieAuth = true;
-            }
-          }
+          cookieAuth = await isTurnstileCookieValid(request, env);
         }
         
         return createSuccessResponse({
@@ -264,7 +244,7 @@ export default {
         });
       }},
       { method: 'GET', path: '/api/server', handler: async () => {
-        await ensureSiteSettings();
+        await ensureFullSettings();
         return handleServerAPI(request, env, sys);
       }},
       { method: 'GET', path: '/api/servers', handler: async () => {
@@ -274,10 +254,10 @@ export default {
       { method: 'GET', path: '/api/ws', handler: async () => handleWebSocketUpgrade(request, env) },
 
       { method: 'GET', path: '/api/history/all', handler: async () => {
-        await ensureSiteSettings();
+        await ensureFullSettings();
         const id = url.searchParams.get('id');
         const hours = parseFloat(url.searchParams.get('hours') || '24');
-        const allColumns = 'cpu, gpu, gpu_info, ram, disk, processes, net_in_speed, net_out_speed, tcp_conn, udp_conn, ping_ct, ping_cu, ping_cm, ping_bd, loss_ct, loss_cu, loss_cm, loss_bd, swap_total, swap_used, load_avg';
+        const allColumns = 'cpu, gpu, gpu_info, ram, disk_total, disk_used, processes, net_in_speed, net_out_speed, tcp_conn, udp_conn, ping_ct, ping_cu, ping_cm, ping_bd, loss_ct, loss_cu, loss_cm, loss_bd, swap_total, swap_used, load_avg';
         return fetchHistoryData(env, request, id, hours, allColumns, sys);
       }},
       { method: 'POST', path: '/admin/api', handler: async () => {
@@ -285,7 +265,7 @@ export default {
         return handleAdminAPI(request, env, sys);
       }},
       { method: 'GET', path: '/updateDatabase', handler: async () => {
-        await ensureSiteSettings();
+        await ensureFullSettings();
         if (!await checkAuth(request, env, sys)) {
           return simpleAuthResponse();
         }
@@ -293,7 +273,7 @@ export default {
         return createSuccessResponse(result);
       }},
       { method: 'GET', path: '/rebuild', handler: async () => {
-        await ensureSiteSettings();
+        await ensureFullSettings();
         if (!await checkAuth(request, env, sys)) {
           return simpleAuthResponse();
         }

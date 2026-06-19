@@ -1,4 +1,5 @@
-import { getLatestMetricsForAllServers, getAllServers } from '../database/schema.js';
+import { getLatestMetricsForAllServers } from '../database/schema.js';
+import { getAllServers } from '../utils/cache.js';
 import { loadSiteSettings, clearSiteSettingsCache } from '../utils/settings.js';
 
 const MAX_RETRIES = 3;

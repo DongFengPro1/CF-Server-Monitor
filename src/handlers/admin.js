@@ -1,5 +1,6 @@
 import { checkAuth, simpleAuthResponse, validateCredentials, generateToken } from '../middleware/auth.js';
-import { getLatestMetricsForAllServers, getAllServers } from '../database/schema.js';
+import { getLatestMetricsForAllServers } from '../database/schema.js';
+import { getAllServers } from '../utils/cache.js';
 import { clearServersListCache, clearServerDetailCache } from '../utils/cache.js';
 import { clearSiteSettingsCache } from '../utils/settings.js';
 import { mergeMetricsIntoServer } from '../utils/metrics.js';

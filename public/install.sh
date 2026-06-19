@@ -537,13 +537,24 @@ while true; do
     SWAP_USED=$(((SWAP_TOTAL_KB - SWAP_FREE_KB) / 1024))
     [ "${SWAP_USED}" -lt 0 ] && SWAP_USED=0
 
-    # 规范化的 df 提取，防范因个别挂载路径过长导致换行错位
-    DISK_INFO=$(df -P / 2>/dev/null | tail -n1 || echo "")
+    # 统计所有数据分区的总容量和使用量（排除引导、光驱、Snap等）
     DISK_TOTAL=0; DISK_USED=0; DISK=0
-    if [ -n "${DISK_INFO}" ]; then
-        DISK_TOTAL=$(echo "${DISK_INFO}" | awk '{print int($2/1024)}')
-        DISK_USED=$(echo "${DISK_INFO}" | awk '{print int($3/1024)}')
-        DISK=$(echo "${DISK_INFO}" | awk '{print $5}' | tr -d '%')
+    DISK_STATS=$(df -kP 2>/dev/null | awk '
+        NR>1 && 
+        $1 ~ /^\/dev\/(sd|vd|hd|xvd|nvme)/ &&
+        $1 !~ /^\/dev\/loop/ &&
+        $6 !~ /^(\/boot|\/boot\/efi|\/snap|\/var\/snap)/ { 
+            total+=$2; used+=$3
+        } 
+        END {print total, used}
+    ')
+
+    if [ -n "${DISK_STATS}" ]; then
+        DISK_TOTAL=$(echo "${DISK_STATS}" | awk '{print int($1/1024)}')
+        DISK_USED=$(echo "${DISK_STATS}" | awk '{print int($2/1024)}')
+        if [ "${DISK_TOTAL}" -gt 0 ]; then
+            DISK=$(awk -v u="${DISK_USED}" -v t="${DISK_TOTAL}" 'BEGIN {printf "%.0f", (u/t)*100}')
+        fi
     fi
 
     # CPU 核心利用率计算

@@ -153,9 +153,9 @@
               <td>
                 <div class="table-stat">
                   <div class="stat-bar-container" style="width:60px;">
-                    <div class="stat-bar-fill" :style="{ width: (parseFloat(server.disk) || 0) + '%', background: 'var(--accent-green)' }"></div>
+                    <div class="stat-bar-fill" :style="{ width: (server.disk_total > 0 ? ((server.disk_used / server.disk_total) * 100).toFixed(2) : 0) + '%', background: 'var(--accent-green)' }"></div>
                   </div>
-                  <span>{{ (parseFloat(server.disk) || 0).toFixed(1) }}%</span>
+                  <span>{{ server.disk_total > 0 ? ((server.disk_used / server.disk_total) * 100).toFixed(2) : '0.00' }}%</span>
                 </div>
               </td>
               <td v-if="sysConfig.show_tf && server.traffic_limit">
@@ -212,6 +212,7 @@ const currentFilter = ref('all')
 const mapInitialized = ref(false)
 const liveConnected = ref(false)
 const isLoading = ref(true)
+const now = ref(Date.now())
 
 const trans = computed(() => translations[currentLang.value] || translations.en)
 
@@ -275,7 +276,30 @@ const getStatusColor = (server) => {
 const getUpdateTime = (lastUpdated) => {
   if (!lastUpdated) return '-'
   const date = new Date(lastUpdated)
-  return date.toLocaleString(undefined, { hour12: false })
+  const diff = now.value - date.getTime()
+
+  const lang = currentLang.value
+  // 时间差为负或小于1秒时，显示0秒前
+  if (diff < 1000) {
+    return lang === 'zh' ? `0${trans.value.secondsAgo}` : `0 ${trans.value.secondsAgo}`
+  }
+
+  const seconds = Math.floor(diff / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+
+  if (seconds < 60) {
+    return lang === 'zh' ? `${seconds}${trans.value.secondsAgo}` : `${seconds} ${trans.value.secondsAgo}`
+  } else if (minutes < 60) {
+    return lang === 'zh' ? `${minutes}${trans.value.minutesAgo}` : `${minutes} ${trans.value.minutesAgo}`
+  } else if (hours < 24) {
+    return lang === 'zh' ? `${hours}${trans.value.hoursAgo}` : `${hours} ${trans.value.hoursAgo}`
+  } else if (days < 30) {
+    return lang === 'zh' ? `${days}${trans.value.daysAgo}` : `${days} ${trans.value.daysAgo}`
+  } else {
+    return date.toLocaleString(undefined, { hour12: false })
+  }
 }
 
 const getTrafficUsagePercent = (server) => {
@@ -409,6 +433,7 @@ const refreshData = async () => {
 let liveSocket = null
 let refreshInterval = null
 let themeObserver = null
+let timeUpdateInterval = null
 
 const applyLiveUpdate = ({ serverId, data }) => {
   if (!data || !serverId) return
@@ -560,6 +585,11 @@ onMounted(() => {
   refreshData()
   startLiveSocket()
 
+  // 每秒更新 now 变量，使相对时间实时刷新
+  timeUpdateInterval = setInterval(() => {
+    now.value = Date.now()
+  }, 1000)
+
   if (savedView === 'map') {
     switchView('map')
   }
@@ -577,6 +607,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (refreshInterval) clearInterval(refreshInterval)
+  if (timeUpdateInterval) clearInterval(timeUpdateInterval)
   if (liveSocket) liveSocket.close()
   if (themeObserver) themeObserver.disconnect()
 })

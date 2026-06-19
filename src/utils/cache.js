@@ -22,6 +22,18 @@ let latestAllCacheTime = 0;
 
 const metricsHistoryCache = new Map();
 
+export function getCacheDuration(hours) {
+  if (hours >= 120) {
+    return 10 * 60 * 1000;
+  } else if (hours >= 60) {
+    return 5 * 60 * 1000;
+  } else if (hours >= 30) {
+    return 3 * 60 * 1000;
+  } else {
+    return 1 * 60 * 1000;
+  }
+}
+
 export async function getAllServers(db, includeHidden = true) {
   const cacheKey = includeHidden ? 'all' : 'visible';
   const now = Date.now();

@@ -1614,6 +1614,10 @@ body::before {
     font-size: 14px;
 }
 
+.chart-current-value-container {
+    text-align: right;
+}
+
 .chart-current-value {
     font-size: 14px;
     font-weight: 700;

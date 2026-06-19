@@ -165,6 +165,9 @@ const translations = reactive({
     enterServerName: '[WARN] Please enter a server name',
     loginRequired: 'Please log in to view historical data longer than 1 hour',
     loginRequiredTitle: 'Login Required',
+    verificationFailed: 'Verification failed',
+    refreshToRetry: 'Please refresh the page to try again',
+    verificationError: 'Verification error',
     dbManagement: 'Database Management',
     upgradeDatabase: 'Upgrade Database',
     rebuildDatabase: 'Rebuild Database',
@@ -198,6 +201,7 @@ const translations = reactive({
     passwordMismatch: 'Passwords do not match',
     usernameRequired: 'Username is required',
     securitySettings: 'Security Settings',
+    securitySettings: 'Security Settings',
     turnstileSettings: 'Cloudflare Turnstile',
     enableTurnstile: 'Enable Turnstile',
     turnstileSiteKey: 'Site Key',
@@ -228,7 +232,11 @@ const translations = reactive({
     d1RowsRead: 'Rows Read',
     d1RowsWritten: 'Rows Written',
     d1NextReset: 'Next Reset',
-    workersRequests: 'Workers Requests'
+    workersRequests: 'Workers Requests',
+    secondsAgo: 'secs ago',
+    minutesAgo: 'mins ago',
+    hoursAgo: 'hurs ago',
+    daysAgo: 'days ago'
   },
   zh: {
     theme: '主题',
@@ -394,6 +402,9 @@ const translations = reactive({
     enterServerName: '[警告] 请输入服务器名称',
     loginRequired: '请先登录以查看1小时以上的历史数据',
     loginRequiredTitle: '需要登录',
+    verificationFailed: '验证失败',
+    refreshToRetry: '请刷新页面重试',
+    verificationError: '验证错误',
     dbManagement: '数据库管理',
     upgradeDatabase: '升级数据库',
     rebuildDatabase: '重建数据库',
@@ -457,7 +468,11 @@ const translations = reactive({
     d1RowsRead: '已读取行数',
     d1RowsWritten: '已写入行数',
     d1NextReset: '下次重置',
-    workersRequests: 'Workers 请求数'
+    workersRequests: 'Workers 请求数',
+    secondsAgo: '秒前',
+    minutesAgo: '分钟前',
+    hoursAgo: '小时前',
+    daysAgo: '天前'
   }
 })
 

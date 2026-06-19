@@ -1,23 +1,14 @@
 import { 
-  getAllServers, 
+  getAllServers,
   getLatestMetricsCache, 
   setLatestMetricsCache,
   getMetricsHistoryCache,
-  setMetricsHistoryCache
+  setMetricsHistoryCache,
+  getCacheDuration
 } from '../utils/cache.js';
 import { clearSiteSettingsCache } from '../utils/settings.js';
 
 let dbInitialized = false;
-
-function getCacheDuration(hours) {
-  if (hours >= 60) {
-    return 5 * 60 * 1000;
-  } else if (hours >= 30) {
-    return 3 * 60 * 1000;
-  } else {
-    return 1 * 60 * 1000;
-  }
-}
 
 export async function initDatabase(db) {
   if (dbInitialized) return;
@@ -460,5 +451,3 @@ export async function getLatestMetricsForAllServers(db) {
     return cacheInfo.cache || new Map();
   }
 }
-
-export { getAllServers };

@@ -1,6 +1,6 @@
 import { checkAuth, simpleAuthResponse } from '../middleware/auth.js';
-import { getLatestMetrics, getLatestMetricsForAllServers, getAllServers } from '../database/schema.js';
-import { getServerDetail } from '../utils/cache.js';
+import { getLatestMetrics, getLatestMetricsForAllServers } from '../database/schema.js';
+import { getAllServers, getServerDetail } from '../utils/cache.js';
 import { mergeMetricsIntoServer } from '../utils/metrics.js';
 import { createSuccessResponse, createBadRequestResponse, createNotFoundResponse } from '../utils/errors.js';
 
