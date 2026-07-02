@@ -6,6 +6,7 @@ import { mergeMetricsIntoServer } from '../utils/metrics.js';
 import { verifyTurnstileToken, hashPassword } from '../utils/common.js';
 import { AppError, createSuccessResponse, createBadRequestResponse, createUnauthorizedResponse, createErrorResponse } from '../utils/errors.js';
 import { addServerColumns } from '../database/updateDatabase.js';
+import { sendNotification } from '../services/notification.js';
 
 function isValidUUID(id) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -317,6 +318,19 @@ export async function handleAdminAPI(request, env, sys) {
         });
       } catch (e) {
         return createBadRequestResponse(e.message);
+      }
+    }
+    else if (data.action === 'send_test_notification') {
+      const { tg_bot_token, tg_chat_id } = data;
+      if (!tg_bot_token || tg_bot_token.trim().length === 0) {
+        return createBadRequestResponse('tgBotTokenRequired');
+      }
+      try {
+        const testMsg = `✅ **测试通知**\n\n这是一条来自 CF Server Monitor 的测试消息。\n\n**时间:** ${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}`;
+        await sendNotification({ tg_bot_token, tg_chat_id: tg_chat_id || '' }, testMsg);
+        return createSuccessResponse({ success: true, message: 'testNotificationSent' });
+      } catch (e) {
+        return createBadRequestResponse('testNotificationFailed');
       }
     }
     else if (data.action === 'save_settings') {

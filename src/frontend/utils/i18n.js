@@ -278,7 +278,10 @@ const translations = reactive({
     validationError: 'Validation Error',
     turnstileSiteKeyRequired: 'Turnstile Site Key is required when Turnstile is enabled',
     turnstileSecretKeyRequired: 'Turnstile Secret Key is required when Turnstile is enabled',
-    tgBotTokenRequired: 'Telegram Bot Token is required when notifications are enabled'
+    tgBotTokenRequired: 'Telegram Bot Token is required when notifications are enabled',
+    sendTestNotification: 'Send Test',
+    testNotificationSent: 'Test notification sent successfully. Remember to save.',
+    testNotificationFailed: 'Failed to send test notification'
   },
   zh: {
     collectInterval: '采集间隔（秒）',
@@ -556,7 +559,10 @@ const translations = reactive({
     validationError: '验证错误',
     turnstileSiteKeyRequired: '启用 Turnstile 时必须填写站点密钥',
     turnstileSecretKeyRequired: '启用 Turnstile 时必须填写密钥',
-    tgBotTokenRequired: '启用通知时必须填写 Telegram Bot Token'
+    tgBotTokenRequired: '启用通知时必须填写 Telegram Bot Token',
+    sendTestNotification: '发送测试',
+    testNotificationSent: '测试通知发送成功，注意保存',
+    testNotificationFailed: '测试通知发送失败'
   }
 })
 

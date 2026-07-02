@@ -331,6 +331,11 @@
                     </div>
                   </div>
                 </div>
+                <div class="form-row">
+                  <div class="form-group flex-1">
+                    <button @click="sendTestNotification" class="btn btn-primary" :disabled="testNotificationLoading">{{ testNotificationLoading ? '⏳' : '📨' }} {{ trans.sendTestNotification }}</button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1061,6 +1066,8 @@ const dbResult = ref(null)
 const d1UsageLoading = ref(false)
 const d1UsageResult = ref(null)
 const validationError = ref(null)
+
+const testNotificationLoading = ref(false)
 
 const showCopyModal = ref(false)
 const copyServerId = ref('')
@@ -1817,6 +1824,27 @@ const queryD1Usage = async () => {
     d1UsageResult.value = { success: false, error: e.message }
   } finally {
     d1UsageLoading.value = false
+  }
+}
+
+const sendTestNotification = async () => {
+  if (testNotificationLoading.value) return
+  testNotificationLoading.value = true
+  try {
+    const result = await adminApiForSite({
+      action: 'send_test_notification',
+      tg_bot_token: settings.value.tg_bot_token,
+      tg_chat_id: settings.value.tg_chat_id
+    })
+    if (!result.error) {
+      alert(getMessage(result.data.message) || trans.value.testNotificationSent)
+    } else {
+      alert(getMessage(result.error) || trans.value.testNotificationFailed)
+    }
+  } catch (e) {
+    alert(trans.value.testNotificationFailed + ': ' + e.message)
+  } finally {
+    testNotificationLoading.value = false
   }
 }
 
