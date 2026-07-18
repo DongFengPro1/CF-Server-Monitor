@@ -3,8 +3,7 @@ import { getServerDetail, clearServerDetailCache } from '../utils/cache.js';
 import { mergeMetricsIntoServer } from '../utils/metrics.js';
 import { createErrorResponse, createUnauthorizedResponse, createNotFoundResponse, createBadRequestResponse } from '../utils/errors.js';
 import { ensureServerOptimization } from '../database/indexOptimization.js';
-import { loadSiteSettings } from '../utils/settings.js';
-import { getRemoteVersion } from '../utils/version.js';
+import { AGENT_VERSION, loadSiteSettings } from '../utils/settings.js';
 import {
   AGENT_CONFIG_MD5_HEADER,
   AGENT_CONFIG_SCHEMA_HEADER,
@@ -249,13 +248,8 @@ export async function handleUpdate(request, env, ctx) {
     let shouldUpdateAgent = false;
     const autoUpdateRequested = isAgentAutoUpdateEnabled(serverDetail.auto_update) && !!agentVersion;
     if (autoUpdateRequested) {
-      try {
-        const remoteVersion = await getRemoteVersion();
-        const targetAgentVersion = normalizeAgentVersion(remoteVersion?.agent || '');
-        shouldUpdateAgent = shouldSendAgentUpdate(agentVersion, targetAgentVersion);
-      } catch (versionError) {
-        console.warn('[Update] Failed to check agent version:', versionError?.message || versionError);
-      }
+      const targetAgentVersion = normalizeAgentVersion(AGENT_VERSION || '');
+      shouldUpdateAgent = shouldSendAgentUpdate(agentVersion, targetAgentVersion);
     }
 
     const clientConfigSchema = request.headers.get(AGENT_CONFIG_SCHEMA_HEADER);
